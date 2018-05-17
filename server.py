@@ -21,6 +21,7 @@ baseroute = "/api/v1"
 cwd = os.getcwd()
 
 top = list()
+currentConnections = list()
 
 queue = [{"status":"", "data":{"modelId":""}, "id":""}]
 
@@ -30,7 +31,15 @@ def index():
 
 @app.route(baseroute+"/queues",methods=["GET"])
 def return_data():
-	global queue
+	global queue, currentConnections
+		
+	if not any(dic.get('ip',None) == request.remote_addr for dic in currentConnections):
+		model = createModel()
+		currentConnections.append(dict(ip=request.remote_addr,connTime=time.time(),modelId=model))
+	else:
+		for connection in currentConnections:
+			if connection['ip'] == request.remote_addr:
+				connection['connTime']=time.time()
 	response = list()
 	for entry in queue:
 		if entry['status'] == "QUEUED":
@@ -68,7 +77,7 @@ def accept_model():
 
 @app.route(baseroute+"/models/<modelId>",methods=["GET"])
 def get_model(modelId):
-	with open(cwd+"\\models\\"+modelId+".json","r") as model:
+	with open("models/%s.json" % modelId,"r") as model:
 		#retValue = dict(id=model.read())
 		retmodel = model.read()
 		retmodel = json.loads(retmodel.replace("'",'"'))
@@ -83,9 +92,9 @@ def get_images(modelId):
 
 	returnJson = list()
 
-	for files in os.listdir(cwd+"\\pictures"):
+	for files in os.listdir("pictures/%s" % modelId):
 		filename = os.fsdecode(files)
-		for pictures in os.listdir(cwd+"\\pictures\\"+filename):
+		for pictures in os.listdir("pictures/%s/%s" % (modelId,filename)):
 			pictureId = os.fsdecode(pictures)
 			returnJson.append(dict(id=pictureId,label=filename))
 			#returnJson.append(dict(label=filename))
@@ -96,56 +105,67 @@ def get_images(modelId):
 def update_queue(queue_id):
 	global queue
 
-	if request.headers['Content-Type'] == 'application/json':
-		for index, entry in enumerate(queue):
-			if entry['id'] == queue_id:
-				print(response.json)
-				queue[index] = request.json
-	else:
-		for index, entry in enumerate(queue):
-			if entry['id'] == queue_id:
-				queue[index]['status'] = "DONE"
+	#if request.headers['Content-Type'] == 'application/json':
+	for index, entry in enumerate(queue):
+		if entry['id'] == queue_id:
+			#print(request.json,file=sys.stderr)
+			queue[index] = request.json
+			if request.json['status']=='DONE':
+				queue[index]['status']='COPYING'
+			#print(queue,file=sys.stderr)
+	# else:
+	# 	for index, entry in enumerate(queue):
+	# 		if entry['id'] == queue_id:
+	# 			queue[index]['status'] = "COPYING"
 	return "No Content",204
 
 @app.route(baseroute+"/models/<model_id>",methods=["PUT"])
 def update_model(model_id):
-	with open(cwd+"\\models\\"+model_id+".json","r") as file:
+	with open("models/%s.json" % model_id,"r+") as file:
 		model = json.load(file)
 		model["data"]=request.json["data"]
-	with open(cwd+"\\models\\"+model_id+".json","w+") as file:
+		file.seek(0)
 		file.write(json.dumps(model))
-	evaluateModel(model_id)
+		file.truncate()
+
+	# for item in queue:
+	# 	if item['data']['modelId']==model_id:
+	# 		item['status']=="COPYING"
+	#evaluateModel(model_id)
 	#createModel()
+
 
 	return "No Content", 204
 
 @app.route(baseroute+"/models/<model_id>/files/<label>/<img_id>",methods=["GET"])
 def get_image(model_id,label,img_id):
-	with open(cwd+"\\pictures\\"+label+"\\"+img_id, "rb") as picture:
+	with open("pictures/%s/%s/%s" % (model_id, label, img_id), "rb") as picture:
 		#retValue = (base64.b64encode(picture.read())).decode('utf-8')
 		retValue = bytearray(picture.read())
+
+	#shutil.rmtree("testPictures/%s" % model_id, ignore_errors=True)
 
 	try:
 		os.makedirs("testPictures/%s" % model_id)
 	except OSError:
 		pass
-
 	try:
 		os.makedirs("testPictures/%s/%s" % (model_id, label))
 	except OSError:
 		pass
-
-	shutil.move("pictures/"+label+"/"+img_id, "testPictures/%s/%s" % (model_id, label))
-
-	#os.remove(cwd+"\\pictures\\"+label+"\\"+img_id)
-	
 	try:
-		os.rmdir("pictures/"+label)
-		is_empty = True
+		shutil.move("pictures/%s/%s/%s" % (model_id, label, img_id), "testPictures/%s/%s" % (model_id, label))
 	except OSError:
-		is_empty = False
-	if is_empty:
+		os.remove("pictures/%s/%s/%s" % (model_id, label, img_id))
 		pass
+
+	# try:
+	# 	os.rmdir("pictures/"+label)
+	# 	is_empty = True
+	# except OSError:
+	# 	is_empty = False
+	# if is_empty:
+	# 	pass
 
 	#return jsonify(retValue)
 	return retValue
@@ -230,79 +250,116 @@ def push_files():
 	runs = request.args.get('runs', default=-1, type=int)
 	pictures = request.args.get('pictures',default=1, type=int)
 	labeling = request.args.get('labeling', default='all', type=str)
+	batchSize = 100 #current default value
 
 	files = os.listdir(cwd+"/modelPicturesX"+str(pictures))
 	
 	if mode == 'single':
 		for folder in files:
 			shutil.copytree("modelPicturesX"+str(pictures)+"/"+folder, "pictures/"+folder)
-		createModel()
+		#createModel()
 	elif mode == 'stop':
 		for t in threading.enumerate():
 			if t.getName() != "MainThread":
-				print(t.getName())
+				print(t.getName(),file=sys.stderr)
 				t.do_run = False
 				#t.join()
 	elif mode == 'repeat':
-		t = threading.Thread(target=copyFiles, args=(runs,pictures,labeling,))
+		t = threading.Thread(target=copyFiles, args=(runs,pictures,labeling,batchSize,))
 		t.start()
 
 	return "204"
 
 
 
-def copyFiles(runs,pictures,labeling):
-	elapsedRuns = 0
+def copyFiles(runs,pictures,labeling,batchSize):
+	runOverview = list()
 	t = threading.currentThread()
 	while getattr(t, "do_run", True):
-		if os.listdir("pictures") == []:
-			print("copying files")
-			files = os.listdir("modelPicturesX"+str(pictures))
-			if labeling == 'all':
-				for folder in files:
-					try:
-						shutil.copytree("modelPicturesX"+str(pictures)+"/"+folder, "pictures/"+folder)
-					except OSError:
-						pass
-			else:
-				while len(os.listdir("pictures"))!=3:
-					folder = os.fsdecode(random.choice(files))
-					if folder not in os.listdir("pictures"):
-						try:
-							shutil.copytree("modelPicturesX"+str(pictures)+"/"+folder, "pictures/"+folder)
-						except OSError:
-							pass
-
-			createModel()
-			elapsedRuns+=1
-
-		if elapsedRuns==runs and runs!=-1:
-			return
-		time.sleep(5)
+		print(queue, file=sys.stderr)
+		for item in queue:
+			if item['status']=="COPYING":
+				modelId=item['data']['modelId']
+				if not any(dic.get('modelId',None) == modelId for dic in runOverview):
+					runOverview.append(dict(modelId=modelId,runs=0))
+				#if os.listdir("pictures/%s" % modelId) == []:
+				if not any(os.listdir("pictures/%s/%s" % (modelId,os.fsdecode(label))) != [] for label in os.listdir("pictures/%s" % modelId)):
+					labels=list()
+					files = os.listdir("modelPictures")
+					if labeling == 'all':
+						for folder in files:
+							labels.append(os.fsdecode(folder))
+							try:
+								os.makedirs("pictures/%s/%s" % (modelId,os.fsdecode(folder)))
+							except OSError:
+								pass
+							for count in range(0,int(batchSize/len(files))):
+								picture = os.fsdecode(random.choice(os.listdir("modelPictures/%s" % os.fsdecode(folder))))
+								try:
+									shutil.copy2("modelPictures/%s/%s" % (folder, picture), "pictures/%s/%s/%s" % (modelId, folder, picture))
+								except OSError:
+									count-=1
+									pass
+							# try:
+							# 	shutil.copytree("modelPicturesX"+str(pictures)+"/"+folder, "pictures/"+folder)
+							# except OSError:
+							# 	pass
+					#TODO
+					else:
+						while len(os.listdir("pictures"))!=3:
+							folder = os.fsdecode(random.choice(files))
+							if folder not in os.listdir("pictures"):
+								try:
+									shutil.copytree("modelPicturesX"+str(pictures)+"/"+folder, "pictures/"+folder)
+								except OSError:
+									pass			
+				#createModel()
+					
+					with open("models/%s.json" % modelId,"r+") as modelFile:
+						model = json.load(modelFile)
+						model['labels']=labels
+						#print(model, file=sys.stderr)
+						modelFile.seek(0)
+						modelFile.write(json.dumps(model))
+						modelFile.truncate()
+					item['status']="QUEUED"
+					for model in runOverview:
+						if model['modelId']==modelId:
+							model['runs']=model['runs']+1
+							if model['runs']>runs and runs!=-1 or model['runs']>40:
+								item['status']="DONE"
+		
+		time.sleep(1)
 
 
 def createModel():
 	global queue
 	labels=list()
-	for files in os.listdir(cwd+"\\pictures"):
-		filename = os.fsdecode(files)
-		labels.append(filename)
+	#for files in os.listdir(cwd+"\\pictures"):
+	#	filename = os.fsdecode(files)
+	#	labels.append(filename)
 
 	modelId = str(uuid.uuid4())
 	queueId = str(uuid.uuid4())
-	with open(cwd+"\\models\\"+modelId+".json","w+") as file:
+	with open("models/%s.json" % modelId,"w+") as file:
 		
-		model = dict(name="cifar",size=32,labels=labels,data="")
+		#model = dict(name="cifar",size=32,labels=labels,data="")
+		model = dict(name="cifar",size=32,labels="",data="")
 
 		file.write(json.dumps(model))
 
-	queue.append(dict(data=dict(modelId=modelId),status="QUEUED",id=queueId))
+	#queue.append(dict(data=dict(modelId=modelId),status="QUEUED",id=queueId))
+	queue.append(dict(data=dict(modelId=modelId),status="COPYING",id=queueId))
+	try:
+		os.makedirs("pictures/%s" % modelId)
 
-	#queue[0]["data"]["modelId"]=modelId
+	except OSError:
+		pass
+
+	return modelId
 
 
-
-def evaluateModel(modelId):
+def evaluateModel(modelId,kill):
 	global top
 	score =-1
 	for count in range(0,10):
@@ -328,7 +385,7 @@ def evaluateModel(modelId):
 			for value in jsonResponse:
 				if value['name'] == folder:
 					score += value['score']
-					print(value['score'])
+					print(value['score'],file=sys.stderr)
 		else:
 			sys.stderr.write(str(response.stderr))
 
@@ -348,36 +405,53 @@ def evaluateModel(modelId):
 					position = index
 			if score > lowestScore:
 				top[position] = dict(modelId=modelId+".json",score=score)
-		with open('top.json','w') as topFile:
+		with open('top.json','a') as topFile:
 			json.dump(top,topFile)
 			#else:	
 			#	os.remove("models/"+modelId+".json")
+		try:
+			os.remove("models/evaluated/%s.json" % modelId)
+		except OSError:
+			pass
+		os.copy2("models/%s.json" % modelId, "models/evaluated/%s.json" % modelId)
+		with open('models/evaluated/scores.json','r+') as scores:
+			if len(scores)==0:
+				jsonScores=list(dict(modelId=modelId, score=score))
+			else:
+				jsonScores = json.load(scores)
+				for model in jsonScores:
+					if model['modelId']==modelId:
+						model[score]=score
+				if not any(score['modelId'] == modelId for score in jsonScores)):
+					jsonScores.append(dict(modelId=modelId, scores=scores))
+			json.dump(jsonResponse,scores)		
 
-	else:
+
+	elif kill:
 		os.remove("models/"+modelId+".json")
+		shutil.rmtree("pictures/%s" % modelId,ignore_errors=True)
+		shutil.rmtree("testPictures/%s" % modelId,ignore_errors=True)
 
-	for folders in files:
-		for pics in os.listdir("testPictures/%s/%s" % (modelId,folders)):
-			os.remove("testPictures/%s/%s/%s" % (modelId,folders,pics))
-		try:
-			os.rmdir("testPictures/%s/%s" % (modelId,folders))
-			is_empty = True
-		except OSError:
-			is_empty = False
-		if is_empty:
-			pass
-		try:
-			os.rmdir("testPictures/%s" % modelId)
-			is_empty = True
-		except OSError:
-			is_empty = False
-		if is_empty:
-			pass
+
+def checkModels():
+	while True:
+		print(currentConnections, file=sys.stderr)
+		for entry in currentConnections:
+			if entry['connTime']+1200<time.time():
+				evaluateModel(entry['modelId'],True)
+				currentConnections.remove(entry)
+				#pictures+testPictures löschen
+			else:
+				evaluateModel(entry['modelId'])
+		time.sleep(300)
 
 
 
 if __name__ == "__main__":
-	#app.run(debug=True)
-	app.run(host='0.0.0.0',threaded=True)
+	t = threading.Thread(target=checkModels, args=())
+	t.start()
+	app.run(debug=True,threaded=True)
+	#app.run(host='0.0.0.0',threaded=True)
+
 
 #updateQueue api when processed
