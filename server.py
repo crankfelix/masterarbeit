@@ -13,6 +13,8 @@ import time
 import shutil
 import threading
 from collections import Counter
+from multiprocessing import Process, Value
+
 
 app = Flask(__name__)
 CORS(app)
@@ -250,13 +252,13 @@ def push_files():
 	runs = request.args.get('runs', default=-1, type=int)
 	pictures = request.args.get('pictures',default=1, type=int)
 	labeling = request.args.get('labeling', default='all', type=str)
-	batchSize = 100 #current default value
+	batchSize = 500 #current default value
 
-	files = os.listdir(cwd+"/modelPicturesX"+str(pictures))
+	
 	
 	if mode == 'single':
 		for folder in files:
-			shutil.copytree("modelPicturesX"+str(pictures)+"/"+folder, "pictures/"+folder)
+			shutil.copytree("modelPictures/"+folder, "pictures/"+folder)
 		#createModel()
 	elif mode == 'stop':
 		for t in threading.enumerate():
@@ -276,7 +278,7 @@ def copyFiles(runs,pictures,labeling,batchSize):
 	runOverview = list()
 	t = threading.currentThread()
 	while getattr(t, "do_run", True):
-		print(queue, file=sys.stderr)
+		#print(queue, file=sys.stderr)
 		for item in queue:
 			if item['status']=="COPYING":
 				modelId=item['data']['modelId']
@@ -422,35 +424,43 @@ def evaluateModel(modelId,kill):
 				for model in jsonScores:
 					if model['modelId']==modelId:
 						model[score]=score
-				if not any(score['modelId'] == modelId for score in jsonScores)):
+				if not any(score['modelId'] == modelId for score in jsonScores):
 					jsonScores.append(dict(modelId=modelId, scores=scores))
 			json.dump(jsonResponse,scores)		
 
 
-	elif kill:
+	if kill:
 		os.remove("models/"+modelId+".json")
 		shutil.rmtree("pictures/%s" % modelId,ignore_errors=True)
 		shutil.rmtree("testPictures/%s" % modelId,ignore_errors=True)
 
+@app.before_first_request
+def activateJob():
 
-def checkModels():
-	while True:
-		print(currentConnections, file=sys.stderr)
-		for entry in currentConnections:
-			if entry['connTime']+1200<time.time():
-				evaluateModel(entry['modelId'],True)
-				currentConnections.remove(entry)
-				#pictures+testPictures löschen
-			else:
-				evaluateModel(entry['modelId'])
-		time.sleep(300)
+	def checkModels():
+		while True:
+			# with open("top.json","w") as testfile:
+			# 	testfile.write(str(queue))
+			print(currentConnections, file=sys.stderr)
+			for entry in currentConnections:
+				if entry['connTime']+1200<time.time():
+					evaluateModel(entry['modelId'],True)
+					currentConnections.remove(entry)
+						#pictures+testPictures löschen
+				else:
+					evaluateModel(entry['modelId'],False)
+			time.sleep(300)
+
+	thread = threading.Thread(target=checkModels)
+	thread.start()	
 
 
 
 if __name__ == "__main__":
-	t = threading.Thread(target=checkModels, args=())
-	t.start()
+	#p = Process(target=checkModels, args=())
+	#p.start()
 	app.run(debug=True,threaded=True)
+	#p.join()
 	#app.run(host='0.0.0.0',threaded=True)
 
 
