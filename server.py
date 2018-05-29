@@ -247,11 +247,13 @@ def get_top():
 
 @app.route(baseroute+"/push", methods=["GET"])
 def push_files():
+	global currentConnections
 
 	mode = request.args.get('mode', default='single', type=str)
 	runs = request.args.get('runs', default=-1, type=int)
 	pictures = request.args.get('pictures',default=1, type=int)
 	labeling = request.args.get('labeling', default='all', type=str)
+	repetition = request.args.get('repetition', default='1', type=int)
 	batchSize = 500 #current default value
 
 	
@@ -262,19 +264,24 @@ def push_files():
 		#createModel()
 	elif mode == 'stop':
 		for t in threading.enumerate():
-			if t.getName() != "MainThread":
-				print(t.getName(),file=sys.stderr)
+			print(t.getName(),file=sys.stderr)
+			if t.getName() != "MainThread" and t.getName()!="checkModels":
+				
 				t.do_run = False
+				for connections in currentConnections:
+					evaluateModel(connections["modelId"],True,batchSize*pictures)
+				currentConnections=list()
 				#t.join()
 	elif mode == 'repeat':
-		t = threading.Thread(target=copyFiles, args=(runs,pictures,labeling,batchSize,))
+		t = threading.Thread(target=copyFiles, args=(runs,pictures,labeling,batchSize,repetition,))
 		t.start()
 
 	return "204"
 
 
 
-def copyFiles(runs,pictures,labeling,batchSize):
+def copyFiles(runs,pictures,labeling,batchSize,repetition):
+	reps=1
 	runOverview = list()
 	t = threading.currentThread()
 	while getattr(t, "do_run", True):
@@ -295,7 +302,7 @@ def copyFiles(runs,pictures,labeling,batchSize):
 								os.makedirs("pictures/%s/%s" % (modelId,os.fsdecode(folder)))
 							except OSError:
 								pass
-							for count in range(0,int(batchSize/len(files))):
+							for count in range(0,int(pictures*batchSize/len(files))):
 								picture = os.fsdecode(random.choice(os.listdir("modelPictures/%s" % os.fsdecode(folder))))
 								try:
 									shutil.copy2("modelPictures/%s/%s" % (folder, picture), "pictures/%s/%s/%s" % (modelId, folder, picture))
@@ -325,12 +332,16 @@ def copyFiles(runs,pictures,labeling,batchSize):
 						modelFile.write(json.dumps(model))
 						modelFile.truncate()
 					item['status']="QUEUED"
+					print(runOverview,file=sys.stderr)
 					for model in runOverview:
 						if model['modelId']==modelId:
 							model['runs']=model['runs']+1
 							if model['runs']>runs and runs!=-1 or model['runs']>40:
 								item['status']="DONE"
-		
+								evaluateModel(modelId,True,batchSize*pictures)
+								if reps<repetition:
+									reps+=1
+									createModel()
 		time.sleep(1)
 
 
@@ -361,12 +372,15 @@ def createModel():
 	return modelId
 
 
-def evaluateModel(modelId,kill):
+def evaluateModel(modelId,kill,batchSize):
 	global top
 	score =-1
 	for count in range(0,10):
 
-		files = os.listdir("testPictures/%s" % modelId)
+		try:
+			files = os.listdir("testPictures/%s" % modelId)
+		except OSError:
+			return
 		folder = os.fsdecode(random.choice(files))
 		pictures = os.listdir("testPictures/%s/%s" % (modelId, folder))
 		pictureId = os.fsdecode(random.choice(pictures))
@@ -392,6 +406,10 @@ def evaluateModel(modelId,kill):
 			sys.stderr.write(str(response.stderr))
 
 	score = score/10
+
+	evaluation=dict(modelId=modelId,score=score,batchSize=batchSize)
+	with open('evaluationDump.json','a') as evaluationDumpFile:
+			json.dump(evaluation,evaluationDumpFile)
 
 	if score>20:
 		if len(top)<10:
@@ -444,14 +462,14 @@ def activateJob():
 			print(currentConnections, file=sys.stderr)
 			for entry in currentConnections:
 				if entry['connTime']+1200<time.time():
-					evaluateModel(entry['modelId'],True)
+					evaluateModel(entry['modelId'],True,-1)
 					currentConnections.remove(entry)
 						#pictures+testPictures löschen
 				else:
-					evaluateModel(entry['modelId'],False)
+					evaluateModel(entry['modelId'],False,-1)
 			time.sleep(300)
 
-	thread = threading.Thread(target=checkModels)
+	thread = threading.Thread(target=checkModels,name="checkModels")
 	thread.start()	
 
 
