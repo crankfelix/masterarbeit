@@ -302,12 +302,15 @@ def copyFiles(runs,pictures,labeling,batchSize,repetition):
 								os.makedirs("pictures/%s/%s" % (modelId,os.fsdecode(folder)))
 							except OSError:
 								pass
-							for count in range(0,int(pictures*batchSize/len(files))):
+							count=0
+							while count < int(pictures*batchSize/len(files)):
+							#for count in range(0,int(pictures*batchSize/len(files))):
 								picture = os.fsdecode(random.choice(os.listdir("modelPictures/%s" % os.fsdecode(folder))))
 								try:
-									shutil.copy2("modelPictures/%s/%s" % (folder, picture), "pictures/%s/%s/%s" % (modelId, folder, picture))
+									if not os.path.exists("pictures/%s/%s/%s" % (modelId, folder, picture)):
+										shutil.copy2("modelPictures/%s/%s" % (folder, picture), "pictures/%s/%s/%s" % (modelId, folder, picture))
+										count+=1
 								except OSError:
-									count-=1
 									pass
 							# try:
 							# 	shutil.copytree("modelPicturesX"+str(pictures)+"/"+folder, "pictures/"+folder)
@@ -433,18 +436,18 @@ def evaluateModel(modelId,kill,batchSize):
 			os.remove("models/evaluated/%s.json" % modelId)
 		except OSError:
 			pass
-		os.copy2("models/%s.json" % modelId, "models/evaluated/%s.json" % modelId)
-		with open('models/evaluated/scores.json','r+') as scores:
-			if len(scores)==0:
-				jsonScores=list(dict(modelId=modelId, score=score))
-			else:
-				jsonScores = json.load(scores)
-				for model in jsonScores:
-					if model['modelId']==modelId:
-						model[score]=score
-				if not any(score['modelId'] == modelId for score in jsonScores):
-					jsonScores.append(dict(modelId=modelId, scores=scores))
-			json.dump(jsonResponse,scores)		
+		shutil.copy2("models/%s.json" % modelId, "models/evaluated/%s.json" % modelId)
+		# with open('models/evaluated/scores.json','r+') as scores:
+		# 	if len(scores.readlines())==0:
+		# 		jsonScores=list(dict(modelId=modelId, score=score))
+		# 	else:
+		# 		jsonScores = json.load(scores)
+		# 		for model in jsonScores:
+		# 			if model['modelId']==modelId:
+		# 				model[score]=score
+		# 		if not any(score['modelId'] == modelId for score in jsonScores):
+		# 			jsonScores.append(dict(modelId=modelId, scores=scores))
+		# 	json.dump(jsonResponse,scores)		
 
 
 	if kill:
@@ -461,13 +464,13 @@ def activateJob():
 			# 	testfile.write(str(queue))
 			print(currentConnections, file=sys.stderr)
 			for entry in currentConnections:
-				if entry['connTime']+1200<time.time():
+				if entry['connTime']+2400<time.time():
 					evaluateModel(entry['modelId'],True,-1)
 					currentConnections.remove(entry)
 						#pictures+testPictures löschen
 				else:
 					evaluateModel(entry['modelId'],False,-1)
-			time.sleep(300)
+			time.sleep(600)
 
 	thread = threading.Thread(target=checkModels,name="checkModels")
 	thread.start()	
@@ -477,9 +480,9 @@ def activateJob():
 if __name__ == "__main__":
 	#p = Process(target=checkModels, args=())
 	#p.start()
-	app.run(debug=True,threaded=True)
+	#app.run(debug=True,threaded=True)
 	#p.join()
-	#app.run(host='0.0.0.0',threaded=True)
+	app.run(host='0.0.0.0',threaded=True,debug=True)
 
 
 #updateQueue api when processed
