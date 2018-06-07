@@ -1,0 +1,343 @@
+Titel (Draft): Distributed machine learning on consumer devices
+
+welches Problem willst Du lösen? 
+- Energiekonzerne produzieren zu hochzeiten zu viel strom, verbraucher stellt rechenpower (Konsole) gegen reward zu verfügung
+- performance von distributed machine learning mit unreliable nodes
+
+
+warum ist das Problem relevant? 
+- Durch grüne Energiegewinnung (Wind, Wasser) ist die Energiegewinnung nicht genau steuerbar und überproduktion kann nur schlecht gespeichert werden
+- Energiekonzern bekommt klimaneutrale rechenpower
+- Energiekonzern hat keine kontrolle über knoten, verbraucher kann selbst entscheiden ob und wie lange er mit macht
+- Lohnt es sich trotzdem für Konzern?
+
+
+welche Lösungsansätze existieren für diese Probleme schon? 
+- im Allgemeinen pumpspeicherwerke oder riesige batterien
+- alternative zu meiner lösung: Tensorflow hat schon distribution eingebaut
+
+
+wie willst Du es lösen?
+- webseite mit javascript (nicht selbst geschrieben, benutzt https://cs.stanford.edu/people/karpathy/convnetjs/) die relevante daten von service holt und alle X sekunden das aktuelle modell sendet
+- service merged gewichte der modelle 
+- service splittet daten für webseite auf
+- websocket um überblick über bestehende clients zu haben
+
+
+inwieweit unterscheidet sich die anvisierte Lösung von existierenden Ansätzen? 
+- tensorflow (auch deeplearn.js, die javascript variante von tensorflow, da nicht edge compatibel) läuft nicht auf allen geräten, meine lösung läuft auch auf tablets, smartphones, konsolen (realitätsnaher)
+
+
+wie willst Du die Lösung evaluieren? 
+- standard datenset verwenden (CIFAR-10)
+- modell nur auf einem knoten trainieren, auf "allen" trainieren, alle X sekunden/minuten geräte ausschalten bzw dazu schalten und denn performance vergleichen
+- distributed tensorflow schreiben (und ähnliche ausfälle simulieren (?))
+
+
+welche Ergebnisse erwartest Du?
+- schlechter als distributed tensorflow, weil kein zugriff auf gpu
+- durch zentralen service gutes handling von ausfällen
+- durch konstantes updaten immer noch schneller als wenn nur ein gerät
+
+
+jeder knoten bearbeitet modell für ein objekt, sendet modell zu master, master jagt unbekanntes objekt durch jedes modell und entscheidet basierend auf confidence(?) was für objekt das ist
+
+
+
+Background
+	Current situation Energy Problem
+		https://www.energie-lexikon.info/energiespeicherung.html
+			- schlechte Speicherung
+				superkondensatoren teuer und begrenzte kapazität
+				batterien teuer, energieverlust, schlechte lebensdauaer
+				bestes bisher: pumpspeicher und druckluftspeicher
+			Um Schwankungen auszugleichen derzeit noch gas und kohle
+			verbundnetz um regionale schwankungen auszugleichen oder ungenutzte großverbraucher herunterfahren
+			schwankungen von erneuerbaren energien ein geringem zeitfenster einigermaßen vorhersehbar
+			regionen werden kombiniert, einzeln betrachtet wäre es schlimmer
+			regionale eigenversorgung sinnvoll um netzausbau zu entlasten
+		https://www.zeit.de/wirtschaft/2017-04/energiepolitik-kraftwerke-erneuerbare-energien-energiewende-kohle-emissionen
+			infrastruktur ausbau geschieht zu langsam für energiewende
+			viele innovation, über sinnhaftigkeit und wie einzusetzen zu wenig diskus
+			immer noch relativ niedriger brennstoffpreis bremst
+			-> regionale flexibilitäten und besserer speicher um energiewende schneller voran zu bringen
+		http://elib.dlr.de/2877/1/Oekologisch-opt-Ausbau_Langfassung.pdf
+			Für nachhaltige entwicklung ist energie zentrale rolle
+			die Energienutzung nur nachhaltig, wenn sie eine ausreichende und dauerhafte Verfügbarkeit von geeigneten Energieressourcen sicherstellt und zugleich die negativen Auswirkungen von Energiebereitstellung, -transport und -nutzung begrenzt.“
+			erneuerbare energien die einzigen verlässlichen Garanten für eine zukunftsfähige Energieversorgung.
+			großräumige interkontinentale Netzverbünde, die das regional sehr unterschiedliche Angebot erneuerbarer Energien optimal miteinander verknüpfen
+			steigerung der energieproduktivität bei energienutzung
+
+	Statistiken, wirkungsgrade, probleme beim speichern und transport über große strecken
+		http://energiespeicher.blogspot.de/2012/04/wirkungsgrad-von-speichern_17.html
+			Kondensatoren 100%, zu klein, zu teuer
+			Pumpspeicher 85% möglich, meistens 80%, ältere manchmal weniger als 70%
+			Druckluftspeicher 40%
+			Methan, gesamt 30%, methan hat nur 60% vom ursprung umwandlung verlicht nochmal 50%
+			Kann man fast nicht gewinnbringend nutzen
+
+		https://www.energie-lexikon.info/pumpspeicherkraftwerk.html
+			niedrige preise, energie für nach oben pumpen, hohe preise, stromerzeugung
+			reine pumpspeicherwerke mehr verbrauach als erzeugt, dafür gezielt
+			topografische abhängigkeiten
+			Da Photovoltaikanlagen meist um die Mittagszeit vermehrt einspeisen und damit die Mittagsspitze decken (in Deutschland oft schon mehr oder weniger vollständig
+			Solange nur Stromlieferungen vergütet werden, nicht aber die bloße Bereitstellung von Leistung (in einem Kapazitätsmarkt), wird die Wirtschaftlichkeit von Pumpspeicherkraftwerken reduziert, obwohl sie als Reserve eigentlich wichtiger werden
+			energieverlust leichter zu verschmerzen, als beispielsweise Windenergieanlagen abzuschalten und somit die Windenergie in solchen Zeiten teilweise ungenutzt zu lassen.
+	Enera
+		http://energie-vernetzen.de/
+			Eine Initiative der EWE AG: energie-vernetzen.de
+			enera demonstriert, wie die Infrastruktur des Energiesystems so innoviert werden kann, dass sie trotz der neuen Anforderungen und der Vielfalt von gleichzeitig eingesetzten Technologien eine hohe Resilienz aufweist
+			durch digitalisierung Netzausbaukosten deutlich reduziert
+			Chancen für innovative Geschäftsmodelle entstehen
+			deutschland wird zum internationalen Leitmarkt der Energietransformation, Technologieführer zu werden und die internationalen Leitanbieter zu stellen
+			neue geschäftsmodelle und innovationen
+			Bundesministerium für Wirtschaft und Energie mit förderprogramm „Schaufenster Intelligente Energie – Digitale Agenda für die Energiewende“ 
+			mehrjähriger praxistest für zukunftsfähige energiesysteme
+			fünf modellregionen 
+			von der Erzeugung, Übertragung und Verteilung der Energie bis hin zur Vermarktung an die Verbraucher.
+			wird seit beginn 17 gefördert
+			modellregion nordweseten deutschland: anteil von 235% erneuerbare energie, auf der einen Seite Erzeugungsschwerpunkte mit schwankender Stromerzeugung, andererseits regional unterschiedliche Verbrauchsschwerpunkte
+
+Theoretical Background
+	Neuronale Netze
+		https://deeplearning4j.org/whydeeplearning.html
+			deep learning term for neural nets with thre or more layers (input,output,hidden)
+			pattern recognition and classification
+			needs a lot of data, advantages over "normal" machine learning for unstructered data
+			anomaly detection
+			analyze beginnings of a patter and fill in the rest
+			extrapolate features
+			can't map decision back to individual features as in decision trees
+			incapable of telling why certain solution reached
+			lacks feature introspection
+			scale up to big data more naturally than alternative approaches
+		Felix Seminararbeit
+			
+	Distributed Machine Learning
+		http://cs.brown.edu/~agg/EDBS.pdf
+			designed to improve performance, increase accuracy, and scale to larger input data sizes
+			more effective than using complex algorithms
+			biggest effort is from single-thread to multi-thread
+			gradient descent to minimize loss function (nutzen wir), 
+				randomly initialized weight vector, iteratively updated
+			Already a lot of frameworks for normale machine learning (MADlib, Mahout(use for Hadoop), Spark)
+
+		https://link.springer.com/article/10.1007/s13748-012-0035-5 - A survey of methods for distributed machine learning
+			inability to use all the data in reasonable time
+			in 2000 information on the web was between 25 and 50 terabytes, in 2005 it was ~600 terabytes
+			all existing solutions operate with training set entirely in main memore
+			training set increase result in better accury
+			large-scale learning as new field
+			horizontal and vertical fragmentation (vertical useful when more attributes arise)
+			transfer of huge data volumes takes much time
+			ensemble learning: build set of classifiers on different data and combine them afterwards (ensemble strategies)
+			Hansen and Salamon [23] have shown that, for an ensemble of artificial neural networks, if all classifiers have the same probability of making error of less than 0.5 and if all of them make errors independently, then the overall error must decrease as a function of the number of classifiers
+			distributed learning (with local datasets) is scalable, increasing data results in increasing computers
+			either classifiers are combined or predictions are combined
+			type of learning technique can be different in different locations (rule based vs distance-based)
+			merging could lose a lot of information
+			product rule, sum rule, max rule, min rule, median rule, majority voting
+			learning a global classifier, finding relationships among the outputs of the classifiers and the desired output
+				einzelne ansätze erklären falls zu wenig seiten, ansonsten nicht relevant genug um zu versuchen alles zu verstehen
+
+		https://dl.acm.org/citation.cfm?id=2347755 - A few useful things to know about machine learning
+
+	Unterschied zum labeling bei data mining
+		http://www.astro.caltech.edu/~george/aybi199/Donalek_Classif.pdf
+			regression,classification,clustering
+			ml is supervised labeling
+			ml subclass of data mining
+			data mining tends to overfit
+			garbage in garbage out
+			feedforward, self-organzied, recurrent, stochastic, modular, 
+			backpropagation: using  this  information, the  algorithm  adjusts  the  weights  of  each  connection  in  order  to  reduce  the  value  of  the  error  function
+
+		https://www.quora.com/What-is-the-difference-between-Deep-Learning-Machine-learning-and-Artificial-Intelligence-Is-Deep-learning-related-to-data-science
+			traditional neural networks 2-3 hidden, depp up to 150
+			manual intervention in selecting which features to process, wherein deep learning, the algorithms perform this intuitively
+			deep learning continously improve with more data
+			in ML not more data but better data helps
+			ML produces numerical output, DL not necessarily
+
+		https://books.google.de/books?hl=de&lr=&id=vLiTXDHr_sYC&oi=fnd&pg=PA3&dq=distributed+machine+learning&ots=CYmwzBXDgp&sig=h03R3rmo_SM-7ZkB8bdqVSt-QVU#v=onepage&q=distributed%20machine%20learning&f=false
+			feature subset selection 
+			constructing new features from basic set
+			evaluation based on prediction accuracy
+			decision tree is comprehensible
+			size of hidden layer hard to determine, not enough neurons poor approximation, excessive neurons overfitting
+			next three not always but scenarios where decision trees also work:
+				neural networks are usually more able to easily provide incremental learning than decision trees
+				training time for a neural network is usually much longer than training time for decision trees
+				neural networks usually perform as well as decision trees, but seldom better
+			bagging is method to build ensembles with different data subset with one learning method
+			voting, weighted voting
+			meta-learner, meta-classifier
+			find best approach for scenario
+			ensemble method weakness: increased storage, increased computation, decreased comprehensibility
+
+		https://link.springer.com/article/10.1007/s10462-007-9052-3 - Machine learning: a review of classification and combining techniques
+
+	convolutional neural networks + distributed
+
+		inspired by biological processes, individual neurons respond only to stimuli in restricted region of visiual field
+		input, output and multiple hidden: convolutional, pooling, fully connected, (normalization)
+		pooling: combine outputs of neuron clusters at one layer into single neuron in next layer
+		multilayer perceptron (MLP) able to do image recognition, but first hidden layer would have 32*32*3 weights (for cifar) and treats pixel far apart same as pixel close together
+		forward pass, each filter is convolved across the width and height of the input volume, computing the dot product between the entries of the filter and the input and producing a 2-dimensional activation map of that filter, the network learns filters that activate when it detects some specific type of feature at some spatial position in the input.
+		Stacking the activation maps for all filters along the depth dimension forms the full output volume of the convolution layer. Every entry in the output volume can thus also be interpreted as an output of a neuron that looks at a small region in the input and shares parameters with neurons in the same activation map.
+		parameter sharing: if feature is useful at one position it is also useful at other position
+		pooling: non-linear down-sampling, max-pooling: image into set of non-overlapping rectangles, for every subregion outputs maximum (Bild). exact position not as important as relative position, controlls overfitting
+		ReLu layer: Rectified Linear Units. This layer applies the non-saturating activation function {\displaystyle f(x)=\max(0,x)} {\displaystyle f(x)=\max(0,x)}
+		fully connected layer: high level reasoning
+		softmax loss layer: penalize difference between predicted and actual label
+
+		http://cs231n.github.io/convolutional-networks/
+			convnet only for images
+			fully connected for 200x200 pictures: 200*200*3 = 120,000 weights
+			convnet neurons arranged in 3 dimensions
+			final output layer would have 1x1x10 (cifar10)
+			simplest case a list of Layers that transform the image volume into an output volume
+			distinct types of layers (conv, fc, relu, pool most popular)
+			conv + fc have parameters, others don't
+			conv: every filter is small, extends through depth (5x5x3), during forward slide acrosse and compute dot product between filter and input, 2d activation map, will activate if they see some visiual feature, after entire set of filters stack activation map along depth dimension to produce output, spacial extent (filter size) is the receptive field, connections are local in space (width, height) but full for entire depth of input (5x5x3 would make 75 weights + 1 bias parameter)
+			We can compute the spatial size of the output volume as a function of the input volume size (W), the receptive field size of the Conv Layer neurons (F), the stride with which they are applied (S), and the amount of zero padding used (P) on the border. You can convince yourself that the correct formula for calculating how many neurons “fit” is given by (W−F+2P)/S+1.
+			setting zero padding to be P=(F−1)/2 when the stride is S=1 results in input and output have same size spatially
+			parameter sharing: scheme to control number of parameters, one feature is useful to compute at some spatial position (x,y), then it should also be useful to compute at a different position (x2,y2), neurons in each depth slice same weights and bias, Alternatively, all neurons in each depth slice will now be using the same parameters. In practice during backpropagation, every neuron in the volume will compute the gradient for its weights, but these gradients will be added up across each depth slice and only update a single set of weights per slice. parameter sharing not always useful (input faces with centered face)
+			pooling layer: reduce amount of parameters, spatial size of representation, control overfitting, often max-pooling layer with 2x2 (discarding 75%)
+			fully connected layer: full connections to all activations in previous layer, Their activations can hence be computed with a matrix multiplication followed by a bias offset. 
+
+		https://deeplearning4j.org/convolutionalnetwork
+			From the Latin convolvere, “to convolve” means to roll together. For mathematical purposes, a convolution is the integral measuring how much two functions overlap as one passes over the other. Think of a convolution as a way of mixing two functions by multiplying them.
+			many filters over single image (early and simplified: horizontal, vertical, diagonal filter)
+			conv layer performs sort of search, moving window (filter) can only recognize one thing (short line), each time match is found he marks the position
+			images not as we humans think but three dimensional objects
+			dot product of filter with patch of image channel, high values in same positions means high dot product which tells us if pixel pattern expressed by filter matches image
+			maxpooling: only locations that showed strongest correlation to each feature are preserved
+
+
+
+		http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf
+
+		https://arxiv.org/pdf/1408.5882.pdf
+			CNN uses layers with convolving filters that are applied to local features
+			invented for computer vision, also effective for NLP: semantic parsing, sentence modeling
+
+
+		https://www.springerprofessional.de/distributed-convolutional-neural-networks-for-human-activity-rec/15533524
+
+		https://openreview.net/pdf?id=SJJN38cge - DISTRIBUTED TRANSFER LEARNING FOR DEEP CONVOLUTIONAL NEURAL NETWORKS BY BASIC PROBABILITY ASSIGNMENT
+
+		https://pdfs.semanticscholar.org/b1d2/e9eef7ff1a50668b1f658d24bef0b43f861c.pdf - Distributed Asynchronous Optimization of Convolutional Neural Networks
+			convolutional NN outperform deep NN
+			DNN vital for computer vision and speech recognition
+			DNN trained with backpropagation and stochastic gradient descent
+			CNN more promising
+			CNN introduce weight sharing across spectrum and time, incorporate pooling for rotational invariance
+			normal CNN add to training time
+			Max pooling emits the maximum neuron from a region of neurons in the same kernel map, provides robustness in translation and rotational invariance
+			Rectified Linear Units (ReLU) neurons use the activation function max(0, x), The hard non-linearity will result in many sparse activations in the network. The sparse exact zero activations will also block any backpropagation gradient paths backwards, resulting in exact zero gradients along those paths
+
+		https://dl.acm.org/citation.cfm?id=3018877 - Distributed training of deep neural networks: theoretical and practical limits of parallel scalability
+
+		https://stanford.edu/~rezab/classes/cme323/S16/projects_reports/hedge_usmani.pdf - Parallel and Distributed Deep Learning
+			information about a model is distributed acrosse differen layers
+			local: multi-core processing (cores share memory, PRAM model), ´GPUs for comp. intensive subroutines, combination
+			distributed: model parallelism, model parallelism 
+
+		https://arxiv.org/pdf/1404.5997.pdf - One weird trick for parallelizing convolutional neural networks
+			model parallelism: when model part needs output of another model part, workers must synchronize
+			data parallelism: worker must synchronize model parameters to ensure training of consistent model
+			model parallelism efficent when computation per neuron is high
+			data parallelism efficient when computation per weight is high
+			convolutional layers contain 90-95% computation, only 5% of parameters and have large representations
+			fully-connected layers containt about 5-10% computation, about 95% of parameters and have small representations
+			data parallelism for conv layer, model for fully-connected
+
+		file:///C:/Users/D065234/Downloads/optimizing-neural-network-topologies.pdf
+		http://papers.nips.cc/paper/4687-large-scale-distributed-deep-networks
+			nothing really significant new, additional source maybe
+		http://papers.nips.cc/paper/4390-hogwild-a-lock-free-approach-to-parallelizing-stochastic-gradient-descent
+			nichts sinnvolles drin
+
+My solution
+	Was existiert schon 
+		https://www.usenix.org/system/files/conference/osdi16/osdi16-abadi.pdf - Tensorflow
+			programming abstraction to deploy applications on distributed clusters, local workstations, mobile devices, and custom-designed accelerators
+			Partial and concurrent execution
+			Distributed execution
+			Dynamic control flow
+			Training very large models
+			Fault tolerance
+			tensorflow lite for mobile
+
+		https://arxiv.org/abs/1408.2041 - Graphlab
+			designing and implementing efficient and provably correct parallel algorithms is extremely challenging
+			shared memory multiprocessor setting
+		BOINC - https://boinc.berkeley.edu/
+			since 2002
+			Berkeley Open Infrastructure for Network Computing
+			uses idle time of pc for projects 
+			gemeinnützig, often from universities and other institutions
+			Einstein@home, Seti@home
+			install client
+			866k active clients, average 19,039.386 TeraFLOPS https://boincstats.com
+			no reward, donate to scientific cause, stress test computers, compete against other users and teams, personal benefit and recognition (naming things)
+		Tensorfire
+			TensorFire runs neural networks in the browser using WebGL
+			TensorFire models run up to 100x faster than previous in-browser neural network libraries, at speeds comparable to highly-optimized native CPU code.
+			still in "beta"
+		TensorFlow.js
+			import tensorflow models
+			was deeplearn.js
+			can import and export existing models
+			also webgl accelerated
+			better documented
+			more flexible
+
+
+	Woran unterscheidet sich meins
+	Theoretischer Background wie es gelöst wird
+	Benutzte Technologien
+		Python
+			dynamic type system, easy to read, fast to program, lot of external libraries
+			multiple programing paradigms: object-oriented, imperative, functional, procedural
+			https://www.python.org/dev/peps/pep-0020/ Beautiful is better than ugly. Explicit is better than implicit. Simple is better than complex. Complex is better than complicated.
+			ability to execute javascript from python 
+		Flask - http://flask.pocoo.org/
+			microfamework based on Werkzeug, Jinja2
+			simple core but extensible (no database, form validation)
+			no database, form handling, upload handling, authentication
+			it's micro but for production use
+			dev-server and debugger
+			integrated unit-testing support
+			support for secure cookies
+			100% wsgi compliant
+			unicode based
+
+		PIL (Pillow)
+			
+		ConvnetJS
+		CIFAR
+			https://www.cs.toronto.edu/~kriz/cifar.html
+		CNN Architecture
+	Evaluation
+	Erwartete Ergebnisse
+
+
+Implementierung
+	Endpoints erklären
+
+Auswertung
+	Verschiedene labeling methoden
+
+Vergleich zu Tensorfire
+	Implementierung kurz ansprechen
+	Auswertung
+		https://js.tensorflow.org/
+		https://arxiv.org/abs/1702.01846 - Development of JavaScript-based deep learning platform and application to distributed training
+
+Bewertung der Ergebnisse
+	An sich von der Idee
+	Umsetzung
+
+Ausblick
