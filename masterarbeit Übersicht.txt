@@ -226,6 +226,14 @@ Theoretical Background
 		https://www.springerprofessional.de/distributed-convolutional-neural-networks-for-human-activity-rec/15533524
 
 		https://openreview.net/pdf?id=SJJN38cge - DISTRIBUTED TRANSFER LEARNING FOR DEEP CONVOLUTIONAL NEURAL NETWORKS BY BASIC PROBABILITY ASSIGNMENT
+			trasnfer learning highly benefical to boost overall performance
+			transfer learning enables adaptation do a different source with small training samples
+			problems: top layers often get specialized to original task, optimization difficulties rise because splitting network between co-adapted layers
+			splitting layers lead to hart optimization problems because of high complexity, solution: fine tune conv filter separately
+			implementation: train original network and copy bottom layers for target network. initialize top random on target and use backpropagation from top to bot to fine tune
+			shows improvement 
+			
+
 
 		https://pdfs.semanticscholar.org/b1d2/e9eef7ff1a50668b1f658d24bef0b43f861c.pdf - Distributed Asynchronous Optimization of Convolutional Neural Networks
 			convolutional NN outperform deep NN
@@ -238,6 +246,13 @@ Theoretical Background
 			Rectified Linear Units (ReLU) neurons use the activation function max(0, x), The hard non-linearity will result in many sparse activations in the network. The sparse exact zero activations will also block any backpropagation gradient paths backwards, resulting in exact zero gradients along those paths
 
 		https://dl.acm.org/citation.cfm?id=3018877 - Distributed training of deep neural networks: theoretical and practical limits of parallel scalability
+			even latest hardware takes days to train medium sized benchmark network
+			vllt bild einfügen dass allle hinter linearum speedup hinterherhängen
+			backpropagation algorithm is a highly non-convex optimization problem in a very high dimensional space, normally solved with stochastic gradient descent, hard to parallelize
+			parallelizing sgd is simple map-reduce scheme, master uses all gradients to update model (synchronized)
+			communication time quickly exceeds compute time after only few nodes
+			distribution of the training data to the workers is bottleneck
+			parallelization of matrix operations also bottleneck
 
 		https://stanford.edu/~rezab/classes/cme323/S16/projects_reports/hedge_usmani.pdf - Parallel and Distributed Deep Learning
 			information about a model is distributed acrosse differen layers
@@ -314,15 +329,53 @@ My solution
 			100% wsgi compliant
 			unicode based
 
-		PIL (Pillow)
-			
-		ConvnetJS
-		CIFAR
-			https://www.cs.toronto.edu/~kriz/cifar.html
-		CNN Architecture
-	Evaluation
-	Erwartete Ergebnisse
+		Pillow (PIL - Python Image Library) https://pillow.readthedocs.io/en/5.1.x/handbook/concepts.html
+			handles raster images
+			used to convert incoming bytestream to rgba pixelmap
+		Naked http://naked.readthedocs.io/index.html
+			python command line application framework
+			Toolshed shell
+				shell module includes functions for the execution of system executables and scripts
+				used to run javascript from python and capture the output
+		ConvnetJS https://cs.stanford.edu/people/karpathy/convnetjs/?spm=5176.100239.blogcont43089.256.HCgoHQ
+			avascript library for training Deep Learning models (Neural Networks) entirely in your browser
+			no compilers, installation, gpu required
+			vols: library based around converting 3d volumes to numbers, these volumes are stored in vol class
+			net: contains a list of layers
+			layers: first layer input, list of other layers, loss layer; takes input vol, will produce output vol
+			input: declares size of input volume
+			fully connected: perform weighted addition of all inputs, pass them through nonlinearity
+			loss layer, classifier: predict discrete classes, softmax for probabilities
+			conv layer: neurons only locally connected, takes parameters sx(filters size), filters(number of filters), stride 
+			pooling: output depth, same as input
+			trainer: takes network and parameters, you pass examples and classes, trainer adjusts network
+				trainer methods: adadelta or adagrad automatically adapt learning rate, 
+					SGD momentum too high never converge, too low network take long to train, 
+					non-zero l2_decay, too high network regularized very strongly (good for few training data), training error very high decrease
+					l1_decay if network should have sparse weights at end
+					usually batch_size of 1 (appropriately small learning rate), controlls how accurate gradient steps will be
+			saving and loading from json: very important for us, loading should make an exact duplicate of original net, with very little data originally models tend to oszilate and not go down (weird!)
 
+		CIFAR https://www.cs.toronto.edu/~kriz/cifar.html
+			consists of 60000 32x32 colour images in 10 classes, with 6000 images per class
+			classes are completely mutually exclusive
+			baseline replicable results on this dataset with cuda-convnet, 18% test error without data augmentation and 11% with
+			
+		CNN Architecture
+
+
+	Evaluation
+		für erste Frage: immer 5 modelle trainieren und jeweils mehr bilder nehmen
+		für zweite frage: bei möglichem knick von frage 1 ansetzen und immer mehr modelle machen
+		für dritte frage: kombination aus 1 und 2 auf beiden geräten laufen lassen
+		für vierte frage: bei kombination von 1 und 2 mehrere bilder testen
+		für fünfte frage: gleiche anzahl wie 1 und 2 und vergleichen
+	Erwartete Ergebnisse
+		je mehr je besser
+		same
+		tensorflow hat besseres ergebnis und ist schneller
+		accumulated
+		3 label method
 
 Implementierung
 	Endpoints erklären
