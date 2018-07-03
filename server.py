@@ -451,7 +451,7 @@ def evaluateModel(modelId,kill,batchSize):
 
 
 	if kill:
-		os.remove("models/"+modelId+".json")
+		#os.remove("models/"+modelId+".json")
 		shutil.rmtree("pictures/%s" % modelId,ignore_errors=True)
 		shutil.rmtree("testPictures/%s" % modelId,ignore_errors=True)
 
