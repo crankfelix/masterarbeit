@@ -125,7 +125,10 @@ def update_queue(queue_id):
 def update_model(model_id):
 	with open("models/%s.json" % model_id,"r+") as file:
 		model = json.load(file)
+		labels = model['labels']
+		
 		model["data"]=request.json["data"]
+		model['labels']=labels
 		file.seek(0)
 		file.write(json.dumps(model))
 		file.truncate()
@@ -318,11 +321,22 @@ def copyFiles(runs,pictures,labeling,batchSize,repetition):
 							# 	pass
 					#TODO
 					else:
-						while len(os.listdir("pictures"))!=3:
+						while len(os.listdir("pictures/%s" % modelId))!=3:
 							folder = os.fsdecode(random.choice(files))
-							if folder not in os.listdir("pictures"):
+							try:
+								os.makedirs("pictures/%s/%s" % (modelId,folder))
+							except OSError:
+								pass
+						for folder in os.listdir("pictures/%s" % modelId):
+							labels.append(os.fsdecode(folder))
+
+							count=0
+							while count < int(pictures*batchSize/len(os.listdir("pictures/%s" % modelId))):
+								picture = os.fsdecode(random.choice(os.listdir("modelPictures/%s" % os.fsdecode(folder))))
 								try:
-									shutil.copytree("modelPicturesX"+str(pictures)+"/"+folder, "pictures/"+folder)
+									if not os.path.exists("pictures/%s/%s/%s" % (modelId, folder, picture)):
+										shutil.copy2("modelPictures/%s/%s" % (folder, picture), "pictures/%s/%s/%s" % (modelId, folder, picture))
+										count+=1
 								except OSError:
 									pass			
 				#createModel()
@@ -330,7 +344,6 @@ def copyFiles(runs,pictures,labeling,batchSize,repetition):
 					with open("models/%s.json" % modelId,"r+") as modelFile:
 						model = json.load(modelFile)
 						model['labels']=labels
-						#print(model, file=sys.stderr)
 						modelFile.seek(0)
 						modelFile.write(json.dumps(model))
 						modelFile.truncate()
@@ -400,6 +413,7 @@ def evaluateModel(modelId,kill,batchSize):
 		response = muterun_js('predict.js models/%s.json convertedImage.txt' % modelId)
 		if response.exitcode == 0:
 			responseString = (response.stdout).decode("utf-8")
+			print(responseString,file=sys.stderr)
 			jsonResponse = json.loads(responseString)
 			for value in jsonResponse:
 				if value['name'] == folder:
@@ -480,9 +494,9 @@ def activateJob():
 if __name__ == "__main__":
 	#p = Process(target=checkModels, args=())
 	#p.start()
-	#app.run(debug=True,threaded=True)
+	app.run(debug=True,threaded=True)
 	#p.join()
-	app.run(host='0.0.0.0',threaded=True,debug=True)
+	#app.run(host='0.0.0.0',threaded=True,debug=True)
 
 
 #updateQueue api when processed
